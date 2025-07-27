@@ -12,7 +12,9 @@ out/
 
 # === Gradle ===
 .gradle/
-build/
+/build/
+!build/libs/
+!build/libs/app.jar
 !gradle/wrapper/gradle-wrapper.jar
 
 # === Java ===
@@ -21,7 +23,6 @@ build/
 
 # === 기타 ===
 *.war
-*.jar
 *.zip
 *.tmp
 *.bak
