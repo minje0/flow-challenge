@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>파일 확장자 차단</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            background: #f9f9f9;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px; /* 최대 너비 제한 */
+            margin: 40px auto; /* 수직 여백 + 가운데 정렬 */
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        .row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .label {
+            width: 120px;
+            font-weight: bold;
+            padding-top: 6px;
+        }
+
+        .content {
+            flex: 1;
+        }
+
+        .tag-list {
+            border: 1px solid #ccc;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .input-group {
+            display: flex;
+            margin-top: 5px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 4px;
+        }
+
+        .input-group button {
+            margin-left: 5px;
+            padding: 4px 10px;
+        }
+
+        .tag {
+            background: #eee;
+            border-radius: 3px;
+            padding: 2px 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin: 4px;
+        }
+
+        .tag button {
+            margin: 0;
+            padding: 0 4px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>○ 파일 확장자 차단</h2>
+    <p>파일확장자에 따라 특정 형식의 파일을 차단하거나 전송하지 못하도록 제한</p>
+
+    <div class="row">
+        <div class="label">고정 확장자</div>
+        <div class="content fixed-ext">
+            <label th:each="ext : ${fixedExtList}">
+                <input type="checkbox"
+                       th:value="${ext.extension}"
+                       th:checked="${ext.blockYn == 'Y'}"
+                       onchange="updateBlockYn(this)">
+                <span th:text="${ext.extension}" th:title="${ext.description}"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="label">커스텀 고정 확장자</div>
+        <div class="content custom-fixed-ext">
+            <div th:each="ext : ${customFixedExtList}" class="tag" th:id="'fixed-tag-' + ${ext.extension}">
+                <input type="checkbox"
+                       th:value="${ext.extension}"
+                       th:checked="${ext.blockYn == 'Y'}"
+                       onchange="updateBlockYn(this)">
+                <span th:text="${ext.extension}" th:title="${ext.description}"></span>
+                <button type="button"
+                        th:attr="data-ext=${ext.extension}"
+                        onclick="removeCustomExt(this)">x</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="label">커스텀 확장자</div>
+        <div class="content custom-ext">
+            <div class="input-group">
+                <input type="text" id="customExtInput" placeholder="확장자 입력 (최대 20자)" maxlength="20" />
+                <input type="text" id="customExtDesc" placeholder="설명 입력 (최대 100자)" maxlength="100" />
+                <button type="button" onclick="addCustomExt()">+추가</button>
+            </div>
+
+            <div class="tag-list">
+                <div id="customCount" th:text="${#lists.size(customExtList)} + '/200'">0/200</div>
+                <div class="tags" id="customExtTagList">
+                    <div class="tag" th:each="ext : ${customExtList}" th:id="'tag-' + ${ext.extension}">
+                        <span th:text="${ext.extension}" th:title="${ext.description}"></span>
+                        <button type="button"
+                                th:attr="data-ext=${ext.extension}"
+                                onclick="removeCustomExt(this)">x</button>
+                        <button type="button"
+                                th:attr="data-ext=${ext.extension}, data-desc=${ext.description}"
+                                onclick="convertToFixed(this)">v</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script th:inline="javascript">
+
+    // 고정된 확장자 체크박스 클릭 시
+    function updateBlockYn(checkbox) {
+        const extension = checkbox.value;
+        const checkedBefore = checkbox.checked;
+
+        fetch('/fixed/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                extension: extension,
+                blockYn: checkedBefore ? 'Y' : 'N'
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.message || '업데이트 실패');
+                });
+            }
+            return response.json();
+        })
+        .catch(error => {
+            checkbox.checked = !checkedBefore;
+            alert(error.message);
+        });
+    }
+
+    // 커스텀 확장자 추가 시
+    function addCustomExt() {
+        const extInput = document.getElementById('customExtInput');
+        const descInput = document.getElementById('customExtDesc');
+
+        const extValue = extInput.value.trim();
+        const desValue = descInput.value.trim();
+
+        if (!extValue) {
+            alert('확장자를 입력해주세요.');
+            return;
+        }
+
+        fetch('/custom/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                extension: extValue,
+                description: desValue
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.message || '추가 실패');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            appendCustomTag(data.extension, data.description);
+            extInput.value = '';
+            descInput.value = '';
+        })
+        .catch(error => {
+            alert(error.message);
+        });
+    }
+
+    // 커스텀 확장자 태그 표시 (x 버튼, v 버튼 포함)
+    function appendCustomTag(ext, desc) {
+        const tagList = document.getElementById('customExtTagList');
+
+        const div = document.createElement('div');
+        div.className = 'tag';
+        div.id = 'tag-' + ext;
+        div.innerHTML = `
+            <span title="${desc}">${ext}</span>
+            <button type="button" data-ext="${ext}" onclick="removeCustomExt(this)">x</button>
+            <button type="button" data-ext="${ext}" data-desc="${desc}" onclick="convertToFixed(this)">v</button>
+        `;
+        tagList.appendChild(div);
+
+        updateCustomCount();
+    }
+
+    // 커스텀 확장자 x 버튼 클릭 시
+    function removeCustomExt(btn) {
+        const ext = btn.dataset.ext;
+
+        fetch('/custom/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ extension: ext })
+        }).then(res => {
+            if (!res.ok) return res.text().then(alert);
+
+            // 고정 확장자인지 커스텀인지 확인해서 적절한 ID 삭제
+            let tag = document.getElementById('tag-' + ext);
+            if (!tag) {
+                tag = document.getElementById('fixed-tag-' + ext);
+            }
+
+            if (tag) tag.remove();
+            updateCustomCount();
+        });
+    }
+
+    // 커스텀 확장자 수 갱신
+    function updateCustomCount() {
+        const tagList = document.getElementById('customExtTagList');
+        const count = tagList.children.length;
+        document.getElementById('customCount').innerText = `${count}/200`;
+    }
+
+    // Enter 입력 시 확장자 자동 추가
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.getElementById("customExtInput");
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                addCustomExt();
+            }
+        });
+    });
+
+    // 커스텀 확장자 → 커스텀 고정 확장자로 전환 (v 버튼)
+    function convertToFixed(btn) {
+        const ext = btn.dataset.ext;
+
+        fetch('/fixed/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ extension: ext })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.message || '고정 확장자로 이동 실패');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            const tag = document.getElementById('tag-' + ext);
+            if (tag) tag.remove();
+            updateCustomCount();
+
+            const customFixedExtDiv = document.querySelector('.custom-fixed-ext');
+            const div = document.createElement('div');
+            div.className = 'tag';
+            div.id = 'fixed-tag-' + data.extension;
+            div.innerHTML = `
+                <input type="checkbox" value="${data.extension}" checked onchange="updateBlockYn(this)">
+                <span title="${data.description}">${data.extension}</span>
+                <button type="button" data-ext="${data.extension}" onclick="removeCustomExt(this)">x</button>
+            `;
+            customFixedExtDiv.appendChild(div);
+        })
+        .catch(error => {
+            alert(error.message);
+        });
+    }
+
+
+
+
+</script>
+</html>

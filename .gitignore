@@ -1,0 +1,28 @@
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# === IntelliJ IDEA ===
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# === Gradle ===
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# === Java ===
+*.class
+*.log
+
+# === 기타 ===
+*.war
+*.jar
+*.zip
+*.tmp
+*.bak
+*.swp
